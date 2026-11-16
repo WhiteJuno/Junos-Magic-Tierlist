@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juno's Magic Tier Maker</title>
+  <style>
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg: #1a1a2e;
+      --surface: #16213e;
+      --surface2: #0f3460;
+      --border: #334;
+      --text: #e0e0e0;
+      --text-muted: #888;
+      --accent: #45e96078;
+      --radius: 6px;
+      --img-size: 80px;
+      --label-w: 120px;
+      /* width of the tier name box */
+      --imgs-per-row: 10;
+      /* images that fit in one visual row */
+      --ctrl-w: 170px;
+      /* controls column width */
+    }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      gap: 20px;
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 1px;
+      position: relative;
+      z-index: 1;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    h1 .name {
+      color: #fff;
+    }
+
+    /* "Juno's" */
+    h1 .magic {
+      color: var(--accent);
+    }
+
+    /* rest */
+
+    .title-video {
+      height: 1.8rem;
+      width: auto;
+      object-fit: contain;
+      border-radius: 4px;
+      display: block;
+      pointer-events: none;
+      flex-shrink: 0;
+    }
+
+    /* ── TIERLIST ─────────────────────────────────────────── */
+    #tierlist-wrap {
+      width: 100%;
+      max-width: calc(var(--label-w) + var(--img-size) * var(--imgs-per-row) + var(--ctrl-w));
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .tier-row {
+      display: flex;
+      align-items: stretch;
+      min-height: var(--img-size);
+      /* exactly one image tall by default */
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .tier-row:last-child {
+      border-bottom: none;
+    }
+
+    .tier-label {
+      width: var(--label-w);
+      min-width: var(--label-w);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      user-select: none;
+      transition: filter .15s;
+      padding: 6px 4px;
+    }
+
+    .tier-label:hover {
+      filter: brightness(1.15);
+    }
+
+    /* inline textarea editor — always black text, wraps if long */
+    .tier-label textarea {
+      width: 100%;
+      min-height: 48px;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      text-align: center;
+      font-weight: 800;
+      font-size: 1.15rem;
+      color: #000;
+      cursor: text;
+      overflow: hidden;
+      /* grow to content */
+      line-height: 1.25;
+      font-family: inherit;
+      padding: 2px;
+    }
+
+    .tier-images {
+      /* Fixed to exactly 10 images wide; row expands in multiples of 10 */
+      width: calc(var(--img-size) * var(--imgs-per-row));
+      flex: none;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      gap: 0;
+      padding: 0;
+      min-height: var(--img-size);
+      background: #111827;
+      position: relative;
+    }
+
+    .tier-images.drag-over {
+      outline: 2px dashed var(--accent);
+      outline-offset: -2px;
+    }
+
+    .tier-controls {
+      display: flex;
+      flex-direction: row;
+      /* all buttons in a single horizontal row */
+      flex-wrap: nowrap;
+      align-items: center;
+      gap: 5px;
+      padding: 0 10px;
+      width: var(--ctrl-w);
+      min-width: var(--ctrl-w);
+      flex-shrink: 0;
+      background: rgba(0, 0, 0, .2);
+    }
+
+    .tier-controls button {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 4px;
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      font-size: 0.78rem;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all .15s;
+      flex-shrink: 0;
+    }
+
+    .tier-controls button:hover {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* color swatch — pinned to the left, guaranteed circle, never stretches */
+    .color-btn {
+      width: 26px !important;
+      height: 26px !important;
+      min-width: 26px !important;
+      min-height: 26px !important;
+      border-radius: 50% !important;
+      padding: 0 !important;
+      border: 2px solid rgba(255, 255, 255, .7) !important;
+      position: relative;
+      overflow: hidden;
+      align-self: center;
+      flex-shrink: 0;
+      margin-right: auto;
+      /* pushes all other buttons to the right */
+    }
+
+    .color-btn input[type="color"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+      padding: 0;
+      border: none;
+    }
+
+    /* ── DRAGGABLE IMAGE TILES ───────────────────────────── */
+    .img-tile {
+      width: var(--img-size);
+      height: var(--img-size);
+      flex-shrink: 0;
+      overflow: hidden;
+      cursor: grab;
+      position: relative;
+      user-select: none;
+      transition: opacity .15s, transform .15s;
+    }
+
+    .img-tile:active {
+      cursor: grabbing;
+    }
+
+    .img-tile img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      pointer-events: none;
+    }
+
+    .img-tile .remove-tile {
+      display: none;
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      background: rgba(0, 0, 0, .7);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 11px;
+      line-height: 18px;
+      text-align: center;
+      cursor: pointer;
+      z-index: 10;
+    }
+
+    .img-tile:hover .remove-tile {
+      display: block;
+    }
+
+    .img-tile.dragging {
+      opacity: .35;
+      transform: scale(.95);
+    }
+
+    /* drag placeholder */
+    .drop-placeholder {
+      width: var(--img-size);
+      height: var(--img-size);
+      flex-shrink: 0;
+      border: 2px dashed var(--accent);
+      background: rgba(233, 69, 96, .1);
+      pointer-events: none;
+    }
+
+    /* ── BOTTOM BAR ──────────────────────────────────────── */
+    #bottom-bar {
+      width: 100%;
+      max-width: calc(var(--label-w) + var(--img-size) * var(--imgs-per-row) + var(--ctrl-w));
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .btn {
+      padding: 8px 18px;
+      border-radius: var(--radius);
+      border: none;
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #3644c7;
+    }
+
+    .btn-secondary {
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: #1a3a60;
+    }
+
+    #upload-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      border-radius: var(--radius);
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      font-size: .9rem;
+      font-weight: 600;
+      cursor: pointer;
+      color: var(--text);
+      transition: all .15s;
+    }
+
+    #upload-label:hover {
+      background: #1a3a60;
+    }
+
+    #upload-input {
+      display: none;
+    }
+
+    /* ── IMAGE POOL ───────────────────────────────────────── */
+    #image-pool-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px;
+    }
+
+    #image-pool-title {
+      font-size: .8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      margin-bottom: 8px;
+    }
+
+    #image-pool {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0;
+      min-height: calc(var(--img-size) + 10px);
+      padding: 4px;
+      border-radius: 4px;
+      background: #111827;
+    }
+
+    #image-pool.drag-over {
+      outline: 2px dashed var(--accent);
+      outline-offset: -2px;
+    }
+
+    #pool-empty {
+      color: var(--text-muted);
+      font-size: .85rem;
+      padding: 20px;
+      width: 100%;
+      text-align: center;
+    }
+
+    /* ── EXPORT MODAL ─────────────────────────────────────── */
+    #export-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #export-modal.open {
+      display: flex;
+    }
+
+    #export-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      max-width: 95vw;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: center;
+    }
+
+    #export-box h2 {
+      font-size: 1.1rem;
+    }
+
+    #export-preview {
+      max-width: 80vw;
+      max-height: 70vh;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    #export-box .row {
+      display: flex;
+      gap: 10px;
+    }
+
+    /* ── TOAST ───────────────────────────────────────────── */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #333;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: .88rem;
+      transition: transform .3s;
+      z-index: 200;
+      pointer-events: none;
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ── WARNING MODAL ───────────────────────────────────── */
+    #warn-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .7);
+      z-index: 150;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #warn-modal.open {
+      display: flex;
+    }
+
+    #warn-box {
+      background: var(--surface);
+      border: 1px solid #c73652;
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      max-width: 480px;
+      width: 90vw;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    #warn-box h2 {
+      font-size: 1.1rem;
+      color: #e94560;
+    }
+
+    #warn-list {
+      background: #0d1117;
+      border-radius: 4px;
+      padding: 10px 14px;
+      font-size: .85rem;
+      color: #f87171;
+      max-height: 200px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      line-height: 1.6;
+    }
+
+    #warn-note {
+      font-size: .82rem;
+      color: var(--text-muted);
+    }
+
+    /* load-cfg-label acts as a button */
+    #load-cfg-label {
+      cursor: pointer;
+    }
+
+    /* ── STARFIELD ───────────────────────────────────────── */
+    #starfield {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+    }
+
+    /* lift page content above stars */
+    body>* {
+      position: relative;
+      z-index: 1;
+    }
+
+    /* ── CONTROLS BAR LAYOUT ─────────────────────────────── */
+    #controls {
+      justify-content: space-between;
+      /* left group ↔ right group */
+    }
+
+    #controls-left,
+    #controls-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+  </style>
+</head>
+
+<body>
+
+  <canvas id="starfield"></canvas>
+
+  <h1>
+    <span class="title-text"><span class="name">Juno's</span> <span class="magic">Magic Tier Maker</span></span>
+    <video class="title-video" src="https://whitejuno.github.io/Assets/Loader.mp4" autoplay loop muted playsinline
+      webkit-playsinline></video>
+  </h1>
+
+  <!-- TIER LIST -->
+  <div id="tierlist-wrap"></div>
+
+  <!-- CONTROLS -->
+  <div id="bottom-bar">
+    <div id="controls">
+      <!-- Left: image actions -->
+      <div id="controls-left">
+        <label id="upload-label">
+          📁 Upload Images
+          <input type="file" id="upload-input" accept="image/*" multiple>
+        </label>
+        <button class="btn btn-primary" id="export-btn">⬇ Export Image</button>
+      </div>
+      <!-- Right: config actions -->
+      <div id="controls-right">
+        <button class="btn btn-secondary" id="save-cfg-btn">💾 Save Config</button>
+        <label class="btn btn-secondary" id="load-cfg-label" title="Load a previously saved .json config">
+          📂 Load Config
+          <input type="file" id="load-cfg-input" accept=".json" style="display:none">
+        </label>
+      </div>
+    </div>
+
+    <!-- IMAGE POOL -->
+    <div id="image-pool-wrap">
+      <div id="image-pool-title">Uploaded Images — drag to a tier row</div>
+      <div id="image-pool">
+        <div id="pool-empty">Upload images to get started</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- EXPORT MODAL -->
+  <div id="export-modal">
+    <div id="export-box">
+      <h2>Export Tier List</h2>
+      <img id="export-preview" src="" alt="Tier list preview">
+      <div class="row">
+        <button class="btn btn-primary" id="download-btn">⬇ Download PNG</button>
+        <button class="btn btn-secondary" id="close-modal-btn">✕ Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- WARNING MODAL (missing images on config load) -->
+  <div id="warn-modal">
+    <div id="warn-box">
+      <h2>⚠️ Missing Images</h2>
+      <p style="font-size:.88rem">The following images referenced in the config were not found in the uploaded images
+        box. Upload them first, then reload the config — or proceed and those slots will be skipped.</p>
+      <div id="warn-list"></div>
+      <p id="warn-note">Tip: upload the missing images and load the config again.</p>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button class="btn btn-secondary" id="warn-proceed-btn">Proceed Anyway</button>
+        <button class="btn btn-primary" id="warn-cancel-btn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ================================================================
+       TIER LIST MAKER – vanilla JS, no dependencies
+       ================================================================ */
+
+    // ── State ──────────────────────────────────────────────────────────
+    const DEFAULT_TIERS = [
+      { label: 'S', color: '#ff7f7f' },
+      { label: 'A', color: '#ffbf7f' },
+      { label: 'B', color: '#ffdf7f' },
+      { label: 'C', color: '#ffff7f' },
+      { label: 'D', color: '#7fff7f' },
+    ];
+
+    let draggedTile = null;         // the .img-tile being dragged
+    let dragSource = null;         // 'pool' | 'tier'
+    let placeholder = null;         // .drop-placeholder element
+    let dragOverZone = null;        // current drop zone element
+
+    // ── Helpers ────────────────────────────────────────────────────────
+    function uid() {
+      return Math.random().toString(36).slice(2);
+    }
+
+    function toast(msg, ms = 2000) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), ms);
+    }
+
+    function getPlaceholder() {
+      if (!placeholder) {
+        placeholder = document.createElement('div');
+        placeholder.className = 'drop-placeholder';
+      }
+      return placeholder;
+    }
+
+    // ── Build initial tiers ────────────────────────────────────────────
+    const tierWrap = document.getElementById('tierlist-wrap');
+
+    function createTierRow(label, color) {
+      const row = document.createElement('div');
+      row.className = 'tier-row';
+
+      // Label cell
+      const labelEl = document.createElement('div');
+      labelEl.className = 'tier-label';
+      labelEl.style.background = color;
+
+      const textarea = document.createElement('textarea');
+      textarea.value = label;
+      textarea.setAttribute('aria-label', 'Tier name');
+      textarea.rows = 1;
+      // Auto-grow height to content
+      function autoGrow() {
+        textarea.style.height = 'auto';
+        textarea.style.height = textarea.scrollHeight + 'px';
+      }
+      textarea.addEventListener('input', autoGrow);
+      // Prevent newline on Enter; Tab moves focus
+      textarea.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') e.preventDefault();
+      });
+      labelEl.appendChild(textarea);
+      // Trigger initial size after insertion
+      requestAnimationFrame(autoGrow);
+
+      // Images zone
+      const imagesEl = document.createElement('div');
+      imagesEl.className = 'tier-images';
+      setupDropZone(imagesEl);
+
+      // Controls
+      const ctrlEl = document.createElement('div');
+      ctrlEl.className = 'tier-controls';
+
+      // Color picker
+      const colorBtn = document.createElement('button');
+      colorBtn.className = 'tier-controls button color-btn';
+      colorBtn.title = 'Change row color';
+      colorBtn.style.background = color;
+      colorBtn.setAttribute('aria-label', 'Change tier color');
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.value = color;
+      colorInput.addEventListener('input', (e) => {
+        const c = e.target.value;
+        labelEl.style.background = c;
+        colorBtn.style.background = c;
+      });
+      colorBtn.appendChild(colorInput);
+
+      // Move up / down / delete / add-below
+      const upBtn = makeCtrlBtn('▲', 'Move row up', () => moveRow(row, -1));
+      const downBtn = makeCtrlBtn('▼', 'Move row down', () => moveRow(row, 1));
+      const delBtn = makeCtrlBtn('✕', 'Delete row', () => deleteRow(row));
+      const addBtn = makeCtrlBtn('＋', 'Insert row below', () => {
+        const newRow = createTierRow('?', '#808080');
+        row.after(newRow);
+        newRow.querySelector('textarea').focus();
+      });
+
+      // Order: [🎨 ·margin-auto· ] [▲] [▼] [✕] [＋]
+      ctrlEl.append(colorBtn, upBtn, downBtn, delBtn, addBtn);
+      row.append(labelEl, imagesEl, ctrlEl);
+      return row;
+    }
+
+    function makeCtrlBtn(text, title, onClick) {
+      const btn = document.createElement('button');
+      btn.textContent = text;
+      btn.title = title;
+      btn.addEventListener('click', onClick);
+      return btn;
+    }
+
+    function moveRow(row, dir) {
+      const rows = [...tierWrap.children];
+      const idx = rows.indexOf(row);
+      const target = rows[idx + dir];
+      if (!target) return;
+      if (dir === -1) tierWrap.insertBefore(row, target);
+      else tierWrap.insertBefore(target, row);
+    }
+
+    function deleteRow(row) {
+      // Return tiles to pool
+      const tiles = [...row.querySelector('.tier-images').querySelectorAll('.img-tile')];
+      tiles.forEach(t => addTileToPool(t));
+      row.remove();
+    }
+
+    // Luminance-based contrast colour
+    function getContrastColor(hex) {
+      const c = hex.replace('#', '');
+      const r = parseInt(c.slice(0, 2), 16);
+      const g = parseInt(c.slice(2, 4), 16);
+      const b = parseInt(c.slice(4, 6), 16);
+      const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+      return lum > 0.55 ? '#000' : '#fff';
+    }
+
+    // Init default rows
+    DEFAULT_TIERS.forEach(t => {
+      tierWrap.appendChild(createTierRow(t.label, t.color));
+    });
+
+    // ── File Upload ────────────────────────────────────────────────────
+    document.getElementById('upload-input').addEventListener('change', (e) => {
+      [...e.target.files].forEach(loadImageFile);
+      e.target.value = '';
+    });
+
+    function loadImageFile(file) {
+      if (!file.type.startsWith('image/')) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const tile = makeTile(ev.target.result, file.name);
+        addTileToPool(tile);
+        updatePoolEmpty();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function makeTile(src, name = 'image') {
+      const tile = document.createElement('div');
+      tile.className = 'img-tile';
+      tile.draggable = true;
+      tile.dataset.name = name;
+
+      const img = document.createElement('img');
+      img.src = src;
+      img.alt = name;
+      img.draggable = false;
+
+      const rmBtn = document.createElement('button');
+      rmBtn.className = 'remove-tile';
+      rmBtn.textContent = '✕';
+      rmBtn.title = 'Send back to image pool';
+      rmBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // If tile is inside a tier row, return it to the pool; otherwise permanently remove
+        const inTier = tile.closest('.tier-images');
+        if (inTier) {
+          addTileToPool(tile);
+        } else {
+          // Already in pool — permanently remove
+          tile.remove();
+          updatePoolEmpty();
+        }
+      });
+
+      tile.append(img, rmBtn);
+      setupTileDrag(tile);
+      return tile;
+    }
+
+    function addTileToPool(tile) {
+      const pool = document.getElementById('image-pool');
+      pool.appendChild(tile);
+      updatePoolEmpty();
+    }
+
+    function updatePoolEmpty() {
+      const pool = document.getElementById('image-pool');
+      const empty = document.getElementById('pool-empty');
+      const hasTiles = pool.querySelector('.img-tile');
+      if (empty) empty.style.display = hasTiles ? 'none' : 'block';
+    }
+
+    // ── Drag & Drop ───────────────────────────────────────────────────
+    function setupTileDrag(tile) {
+      tile.addEventListener('dragstart', onTileDragStart);
+      tile.addEventListener('dragend', onTileDragEnd);
+    }
+
+    function onTileDragStart(e) {
+      draggedTile = e.currentTarget;
+      dragSource = draggedTile.closest('#image-pool') ? 'pool' : 'tier';
+      draggedTile.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', '');
+    }
+
+    function onTileDragEnd() {
+      draggedTile?.classList.remove('dragging');
+      getPlaceholder().remove();
+      // Clean up drag-over highlights
+      document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+      draggedTile = null;
+      dragSource = null;
+      dragOverZone = null;
+      updatePoolEmpty();
+    }
+
+    function setupDropZone(zone) {
+      zone.addEventListener('dragover', onZoneDragOver);
+      zone.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        zone.classList.add('drag-over');
+        dragOverZone = zone;
+      });
+      zone.addEventListener('dragleave', (e) => {
+        // Only remove if we actually left the zone (not entered a child)
+        if (!zone.contains(e.relatedTarget)) {
+          zone.classList.remove('drag-over');
+        }
+      });
+      zone.addEventListener('drop', (e) => onZoneDrop(e, zone));
+    }
+
+    function onZoneDragOver(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (!draggedTile) return;
+
+      const zone = e.currentTarget;
+      const ph = getPlaceholder();
+
+      // Find insertion point
+      const afterEl = getDragAfterElement(zone, e.clientX, e.clientY);
+      if (afterEl) {
+        zone.insertBefore(ph, afterEl);
+      } else {
+        zone.appendChild(ph);
+      }
+    }
+
+    function getDragAfterElement(container, x, y) {
+      const draggables = [...container.querySelectorAll('.img-tile:not(.dragging)')];
+      let closest = { offset: Number.NEGATIVE_INFINITY, el: null };
+
+      for (const child of draggables) {
+        const box = child.getBoundingClientRect();
+        const centerX = box.left + box.width / 2;
+        const centerY = box.top + box.height / 2;
+
+        // Prefer horizontal proximity on same row, fall back to vertical
+        const rowMatch = Math.abs(y - centerY) < box.height;
+        const offset = rowMatch ? (x - centerX) : (y - centerY - box.height);
+
+        if (offset < 0 && offset > closest.offset) {
+          closest = { offset, el: child };
+        }
+      }
+      return closest.el;
+    }
+
+    function onZoneDrop(e, zone) {
+      e.preventDefault();
+      if (!draggedTile) return;
+      zone.classList.remove('drag-over');
+      const ph = getPlaceholder();
+      if (ph.parentNode === zone) {
+        zone.insertBefore(draggedTile, ph);
+      } else {
+        zone.appendChild(draggedTile);
+      }
+      ph.remove();
+      updatePoolEmpty();
+    }
+
+    // Set up pool as a drop zone too
+    setupDropZone(document.getElementById('image-pool'));
+
+    // ── Export ─────────────────────────────────────────────────────────
+    document.getElementById('export-btn').addEventListener('click', exportTierList);
+    document.getElementById('close-modal-btn').addEventListener('click', () => {
+      document.getElementById('export-modal').classList.remove('open');
+    });
+    document.getElementById('export-modal').addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+    });
+
+    async function exportTierList() {
+      const rows = [...tierWrap.querySelectorAll('.tier-row')];
+      if (!rows.length) { toast('No tier rows to export!'); return; }
+
+      const IMG = 80;   // --img-size
+      const LABEL_W = 120;  // --label-w
+      const PER_ROW = 10;   // --imgs-per-row
+      const IMGS_W = IMG * PER_ROW;
+      const WIDTH = LABEL_W + IMGS_W;
+
+      // Calculate canvas height
+      let totalHeight = 0;
+      const rowData = rows.map(row => {
+        const tiles = [...row.querySelectorAll('.img-tile img')];
+        const labelDiv = row.querySelector('.tier-label');
+        const textareaEl = row.querySelector('textarea');
+        const rowCount = tiles.length === 0 ? 1 : Math.ceil(tiles.length / PER_ROW);
+        const h = rowCount * IMG;
+        totalHeight += h;
+        return { tiles, labelDiv, textareaEl, h };
+      });
+
+      const canvas = document.createElement('canvas');
+      canvas.width = WIDTH;
+      canvas.height = totalHeight;
+      const ctx = canvas.getContext('2d');
+
+      // Background
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 0, WIDTH, totalHeight);
+
+      let y = 0;
+      for (const rd of rowData) {
+        const { tiles, labelDiv, textareaEl, h } = rd;
+        const bg = labelDiv.style.background || '#808080';
+
+        // Label cell background
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, y, LABEL_W, h);
+
+        // Label text — always black, word-wrapped
+        ctx.fillStyle = '#000';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 0;
+        const text = (textareaEl ? textareaEl.value : '') || '';
+        const maxW = LABEL_W - 10;
+        const fontSize = 20;
+        ctx.font = `bold ${fontSize}px system-ui, sans-serif`;
+        // Simple word-wrap by characters for the label
+        const words = text.split(/\s+/);
+        const lines = [];
+        let line = '';
+        for (const w of words) {
+          const test = line ? line + ' ' + w : w;
+          if (ctx.measureText(test).width > maxW && line) {
+            lines.push(line); line = w;
+          } else { line = test; }
+        }
+        if (line) lines.push(line);
+        const lineH = fontSize * 1.3;
+        const totalTH = lines.length * lineH;
+        let ty = y + h / 2 - totalTH / 2 + lineH / 2;
+        for (const ln of lines) {
+          ctx.fillText(ln, LABEL_W / 2, ty);
+          ty += lineH;
+        }
+
+        // Row separator
+        ctx.fillStyle = '#334455';
+        ctx.fillRect(0, y + h - 1, WIDTH, 1);
+
+        // Images — 10 per row
+        let ix = LABEL_W;
+        let iy = y;
+        for (const img of tiles) {
+          if (ix >= LABEL_W + IMGS_W) { ix = LABEL_W; iy += IMG; }
+          await drawImageOnCanvas(ctx, img, ix, iy, IMG, IMG);
+          ix += IMG;
+        }
+
+        y += h;
+      }
+
+      const dataURL = canvas.toDataURL('image/png');
+      document.getElementById('export-preview').src = dataURL;
+      document.getElementById('export-modal').classList.add('open');
+
+      document.getElementById('download-btn').onclick = () => {
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const yy = String(now.getFullYear()).slice(-2);
+        const a = document.createElement('a');
+        a.href = dataURL;
+        a.download = `Tier List ${dd}-${mm}-${yy}.png`;
+        a.click();
+        toast('Downloaded!');
+      };
+    }
+
+    function drawImageOnCanvas(ctx, imgEl, x, y, w, h) {
+      return new Promise((resolve) => {
+        if (imgEl.complete) {
+          ctx.drawImage(imgEl, x, y, w, h);
+          resolve();
+        } else {
+          imgEl.onload = () => { ctx.drawImage(imgEl, x, y, w, h); resolve(); };
+        }
+      });
+    }
+
+    // Drag & drop files onto the page
+    document.addEventListener('dragover', (e) => {
+      if ([...e.dataTransfer.items].some(i => i.kind === 'file')) e.preventDefault();
+    });
+    document.addEventListener('drop', (e) => {
+      if (!e.dataTransfer.files.length) return;
+      // Only if not dropping on a tier zone (those have their own handler)
+      if (e.target.closest('.tier-images') || e.target.closest('#image-pool')) return;
+      e.preventDefault();
+      [...e.dataTransfer.files].filter(f => f.type.startsWith('image/')).forEach(loadImageFile);
+    });
+
+    // ── Save / Load Config ─────────────────────────────────────────────
+
+    /**
+     * Build a serialisable config object from current state.
+     * Images are stored as { name, dataURL } so the JSON is fully self-contained.
+     */
+    function buildConfig() {
+      const pool = document.getElementById('image-pool');
+
+      // Collect all pool images keyed by name
+      const poolImages = {};
+      pool.querySelectorAll('.img-tile').forEach(tile => {
+        poolImages[tile.dataset.name] = tile.querySelector('img').src;
+      });
+
+      // Collect tier rows
+      const tiers = [...tierWrap.querySelectorAll('.tier-row')].map(row => {
+        const label = row.querySelector('textarea').value;
+        const color = row.querySelector('.tier-label').style.background;
+        const images = [...row.querySelectorAll('.img-tile')].map(tile => ({
+          name: tile.dataset.name,
+          dataURL: tile.querySelector('img').src,
+        }));
+        return { label, color, images };
+      });
+
+      // Also persist pool images (unranked)
+      const poolEntries = [...pool.querySelectorAll('.img-tile')].map(tile => ({
+        name: tile.dataset.name,
+        dataURL: tile.querySelector('img').src,
+      }));
+
+      return { version: 1, tiers, pool: poolEntries };
+    }
+
+    document.getElementById('save-cfg-btn').addEventListener('click', () => {
+      const cfg = buildConfig();
+      const json = JSON.stringify(cfg, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const now = new Date();
+      const dd = String(now.getDate()).padStart(2, '0');
+      const mm = String(now.getMonth() + 1).padStart(2, '0');
+      const yy = String(now.getFullYear()).slice(-2);
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `Tier List ${dd}-${mm}-${yy}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('Config saved!');
+    });
+
+    // ── Load Config ────────────────────────────────────────────────────
+    let pendingConfig = null;  // held while user decides on missing-image warning
+
+    document.getElementById('load-cfg-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      e.target.value = '';
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        let cfg;
+        try { cfg = JSON.parse(ev.target.result); }
+        catch { toast('Invalid JSON file!'); return; }
+        if (!cfg.tiers) { toast('Not a valid Tier List config!'); return; }
+        applyConfig(cfg);
+      };
+      reader.readAsText(file);
+    });
+
+    function applyConfig(cfg, skipMissing = false) {
+      // ── 1. Build a name→dataURL map of everything the config knows about
+      const cfgImages = {};   // name → dataURL from config (tiers + pool)
+      for (const t of cfg.tiers) {
+        for (const img of (t.images || [])) cfgImages[img.name] = img.dataURL;
+      }
+      for (const img of (cfg.pool || [])) cfgImages[img.name] = img.dataURL;
+
+      // ── 2. Build map of currently uploaded pool images (by name)
+      const pool = document.getElementById('image-pool');
+      const poolMap = {};   // name → tile element
+      pool.querySelectorAll('.img-tile').forEach(tile => {
+        poolMap[tile.dataset.name] = tile;
+      });
+      // Also check images currently in tier rows
+      tierWrap.querySelectorAll('.img-tile').forEach(tile => {
+        poolMap[tile.dataset.name] = tile;
+      });
+
+      // ── 3. Detect missing images (referenced in tiers but not in pool/tiers)
+      const missing = [];
+      for (const t of cfg.tiers) {
+        for (const img of (t.images || [])) {
+          if (!poolMap[img.name]) missing.push(img.name);
+        }
+      }
+
+      if (missing.length && !skipMissing) {
+        // Show warning modal — give user a chance to upload then try again
+        pendingConfig = cfg;
+        document.getElementById('warn-list').textContent =
+          missing.map(n => `• ${n}`).join('\n');
+        document.getElementById('warn-modal').classList.add('open');
+        return;
+      }
+
+      // ── 4. Apply: reconstruct tiers and pool
+      // Move all existing tier images back to pool first
+      tierWrap.querySelectorAll('.img-tile').forEach(tile => addTileToPool(tile));
+      // Clear existing rows
+      tierWrap.innerHTML = '';
+
+      // Re-create rows from config
+      for (const t of cfg.tiers) {
+        const row = createTierRow(t.label, t.color);
+        tierWrap.appendChild(row);
+        const zone = row.querySelector('.tier-images');
+
+        for (const imgDef of (t.images || [])) {
+          let tile = poolMap[imgDef.name];
+          if (tile) {
+            // Move existing tile from pool into this tier
+            zone.appendChild(tile);
+          } else if (!skipMissing) {
+            // Create from embedded dataURL (should always be present since no missing)
+            const newTile = makeTile(imgDef.dataURL, imgDef.name);
+            zone.appendChild(newTile);
+          }
+          // If skipMissing && tile not found — just omit it
+        }
+      }
+
+      // ── 5. Restore pool images from config (images not in tiers)
+      // Any images in cfg.pool that are not already placed in a tier
+      const placedNames = new Set(
+        [...tierWrap.querySelectorAll('.img-tile')].map(t => t.dataset.name)
+      );
+      for (const imgDef of (cfg.pool || [])) {
+        if (!placedNames.has(imgDef.name)) {
+          // Check if already in pool
+          if (!pool.querySelector(`.img-tile[data-name="${CSS.escape(imgDef.name)}"]`)) {
+            const tile = makeTile(imgDef.dataURL, imgDef.name);
+            pool.appendChild(tile);
+          }
+        }
+      }
+
+      updatePoolEmpty();
+      toast('Config loaded!');
+      pendingConfig = null;
+    }
+
+    // Warning modal buttons
+    document.getElementById('warn-proceed-btn').addEventListener('click', () => {
+      document.getElementById('warn-modal').classList.remove('open');
+      if (pendingConfig) applyConfig(pendingConfig, true);
+    });
+    document.getElementById('warn-cancel-btn').addEventListener('click', () => {
+      document.getElementById('warn-modal').classList.remove('open');
+      pendingConfig = null;
+    });
+    // ── Starfield ──────────────────────────────────────────────────────
+    (function () {
+      const canvas = document.getElementById('starfield');
+      const ctx = canvas.getContext('2d');
+      const STAR_COUNT = 200;
+      const stars = [];
+
+      function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      // Each star: x, y, radius, current opacity, target opacity, fade speed
+      function randomStar() {
+        const opacity = Math.random();
+        return {
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          r: Math.random() * 1.4 + 0.3,
+          opacity,
+          target: Math.random(),
+          speed: Math.random() * 0.004 + 0.001,  // fade rate per frame
+        };
+      }
+
+      for (let i = 0; i < STAR_COUNT; i++) stars.push(randomStar());
+
+      // Occasional shooting star state
+      let shoot = null;
+
+      function spawnShoot() {
+        shoot = {
+          x: Math.random() * canvas.width * 0.7,
+          y: Math.random() * canvas.height * 0.4,
+          vx: 6 + Math.random() * 4,
+          vy: 2 + Math.random() * 3,
+          len: 120 + Math.random() * 80,
+          life: 1,         // opacity 0→1→0
+          phase: 0,        // 0=in 1=out
+        };
+      }
+      // Schedule first shooting star after a short delay
+      setTimeout(spawnShoot, 2000 + Math.random() * 3000);
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        for (const s of stars) {
+          // Drift opacity toward target
+          if (s.opacity < s.target) s.opacity = Math.min(s.target, s.opacity + s.speed);
+          else s.opacity = Math.max(s.target, s.opacity - s.speed);
+
+          // Pick a new target once reached
+          if (Math.abs(s.opacity - s.target) < 0.005) {
+            s.target = Math.random() * 0.9 + 0.05;
+            s.speed = Math.random() * 0.005 + 0.001;
+          }
+
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fillStyle = `rgba(255,255,255,${s.opacity.toFixed(3)})`;
+          ctx.fill();
+        }
+
+        // Shooting star
+        if (shoot) {
+          shoot.x += shoot.vx;
+          shoot.y += shoot.vy;
+          // Fade in then out
+          if (shoot.phase === 0) { shoot.life -= 0.03; if (shoot.life <= 0.1) shoot.phase = 1; }
+          else { shoot.life += 0.06; }
+
+          const alpha = shoot.phase === 0 ? (1 - shoot.life) : shoot.life;
+          const grad = ctx.createLinearGradient(
+            shoot.x, shoot.y,
+            shoot.x - shoot.vx * (shoot.len / 8),
+            shoot.y - shoot.vy * (shoot.len / 8)
+          );
+          grad.addColorStop(0, `rgba(255,255,255,${(alpha * 0.9).toFixed(2)})`);
+          grad.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.beginPath();
+          ctx.moveTo(shoot.x, shoot.y);
+          ctx.lineTo(shoot.x - shoot.vx * (shoot.len / 8),
+            shoot.y - shoot.vy * (shoot.len / 8));
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // Destroy when faded out or off-screen
+          if ((shoot.phase === 1 && shoot.life > 0.98) ||
+            shoot.x > canvas.width + 50 || shoot.y > canvas.height + 50) {
+            shoot = null;
+            setTimeout(spawnShoot, 4000 + Math.random() * 8000);
+          }
+        }
+
+        requestAnimationFrame(draw);
+      }
+      draw();
+    })();
+
+    // Ensure title animation plays smoothly
+    const titleVideo = document.querySelector('.title-video');
+    if (titleVideo) {
+      titleVideo.play().catch(() => { });
+    }
+  </script>
+</body>
+
+</html>
