@@ -1,6 +1,8 @@
+# Juno's Magic Tierlist Maker 🐮
+
 So... I'm tired of ads and confusing sites because im a dumb cow, so I've made my own Tierlist page.
 With even more features, AD-free, no login needed, open source and free to use. You can even download it and use or offline. Enjoy :3c
-# Juno's Magic Tierlist Maker 🐮
+
 ## 🪄 Key Features
 
 ### 🏷️ Tier & Row Customization
